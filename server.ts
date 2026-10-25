@@ -40,7 +40,7 @@ function getDefaultDatabase(): any {
     sekolahInfo: {
       nama: 'SDN 1 GEMENGGENG',
       npsn: '20537803',
-      akreditasi: 'A (Unggul)',
+      akreditasi: 'B',
       kepalaSekolah: 'VITA DEWI SUSANTI, S.Pd., M.Pd.',
       nipKepsek: '19830723 200604 2 022'
     },

@@ -3,7 +3,7 @@ import type { PendidikTendik, Siswa, JadwalPelajaran, KegiatanSekolah, AlbumKegi
 export const SEKOLAH_INFO = {
   nama: 'SDN 1 GEMENGGENG',
   npsn: '20537803',
-  akreditasi: 'A (Unggul)',
+  akreditasi: 'B',
   kurikulum: 'Kurikulum Merdeka',
   alamat: 'Jl. Raya Gemenggeng No. 12, Desa Gemenggeng, Kec. Pace, Kab. Nganjuk, Jawa Timur 64472',
   telepon: '(0358) 321890',

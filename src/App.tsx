@@ -334,7 +334,6 @@ export default function App() {
       <div className="lg:pl-72 flex flex-col flex-1 min-w-0">
         <Header
           onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
-          onResetData={handleResetData}
           isAdmin={isAdmin}
           onOpenAdminModal={() => setIsAdminModalOpen(true)}
           onLogoutAdmin={() => {

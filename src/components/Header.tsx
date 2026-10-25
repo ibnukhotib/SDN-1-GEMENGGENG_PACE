@@ -1,11 +1,10 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Menu, Calendar, RefreshCw, Printer, ShieldCheck, Eye, KeyRound, Cloud } from 'lucide-react';
 import { SEKOLAH_INFO } from '../data/initialData';
-import { ConfirmModal } from './ConfirmModal';
 
 interface HeaderProps {
   onToggleSidebar: () => void;
-  onResetData: () => void;
+  onResetData?: () => void;
   isAdmin: boolean;
   onOpenAdminModal: () => void;
   onLogoutAdmin: () => void;
@@ -15,14 +14,12 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({
   onToggleSidebar,
-  onResetData,
   isAdmin,
   onOpenAdminModal,
   onLogoutAdmin,
   isSyncing = false,
   onOpenSyncModal
 }) => {
-  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
 
   const currentDate = new Intl.DateTimeFormat('id-ID', {
     weekday: 'long',
@@ -133,38 +130,10 @@ export const Header: React.FC<HeaderProps> = ({
                 <Printer className="w-3.5 h-3.5 text-slate-500" />
                 <span className="hidden sm:inline">Cetak</span>
               </button>
-
-              {isAdmin && (
-                <button
-                  onClick={() => setIsResetModalOpen(true)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium text-slate-600 hover:text-emerald-700 hover:bg-emerald-50 border border-transparent hover:border-emerald-200 transition-colors"
-                  title="Reset data ke bawaan awal"
-                >
-                  <RefreshCw className="w-3.5 h-3.5" />
-                  <span className="hidden lg:inline">Reset Data Awal</span>
-                </button>
-              )}
             </div>
           </div>
         </div>
       </header>
-
-      {/* Reset Confirmation Modal */}
-      <ConfirmModal
-        isOpen={isResetModalOpen}
-        title="Pulihkan Data Awal"
-        message="Apakah Anda yakin ingin memulihkan seluruh data demo awal SDN 1 Gemenggeng?"
-        detail="Semua perubahan data pendidik, siswa, nilai, dan absensi yang baru dibuat akan dikembalikan ke data awal sistem."
-        confirmLabel="Ya, Pulihkan Data"
-        cancelLabel="Batal"
-        variant="warning"
-        iconType="refresh"
-        onConfirm={() => {
-          setIsResetModalOpen(false);
-          onResetData();
-        }}
-        onCancel={() => setIsResetModalOpen(false)}
-      />
     </>
   );
 };
