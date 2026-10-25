@@ -253,9 +253,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 {isAdmin ? <ShieldCheck className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
               </div>
               <div>
-                <p className="font-bold leading-none">{isAdmin ? 'Akses Admin' : 'Mode Pelihat'}</p>
+                <p className="font-bold leading-none">{isAdmin ? 'Akses Admin' : 'Portal Sekolah'}</p>
                 <p className="text-[10px] text-slate-500 mt-0.5">
-                  {isAdmin ? 'Izin Edit & Hapus Aktif' : 'Hanya Lihat Data'}
+                  {isAdmin ? 'Izin Edit & Hapus Aktif' : 'SDN 1 Gemenggeng'}
                 </p>
               </div>
             </div>

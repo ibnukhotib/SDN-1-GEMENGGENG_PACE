@@ -209,7 +209,7 @@ export const PtkView: React.FC<PtkViewProps> = ({
             <Printer className="w-4 h-4 text-slate-500" />
             <span>Cetak Rekap PTK</span>
           </button>
-          {isAdmin ? (
+          {isAdmin && (
             <button
               onClick={openAddModal}
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-sm active:scale-95"
@@ -217,10 +217,6 @@ export const PtkView: React.FC<PtkViewProps> = ({
               <Plus className="w-4 h-4" />
               <span>Input Data PTK Baru</span>
             </button>
-          ) : (
-            <span className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200">
-              Mode Pelihat
-            </span>
           )}
         </div>
       </div>

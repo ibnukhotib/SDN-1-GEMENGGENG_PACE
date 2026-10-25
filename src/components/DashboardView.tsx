@@ -183,23 +183,28 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </button>
               </>
             ) : (
-              <div className="p-3.5 rounded-2xl bg-emerald-950/60 border border-emerald-700/50 backdrop-blur-xs space-y-2 max-w-xs">
-                <div className="flex items-center gap-2 text-xs font-bold text-amber-300">
-                  <Lock className="w-4 h-4" />
-                  <span>Mode Pelihat (Tamu)</span>
-                </div>
-                <p className="text-[11px] text-emerald-200/90 leading-relaxed">
-                  Pengeditan & input data dikunci untuk umum. Masuk dengan PIN untuk mengelola.
-                </p>
-                {onRequireAdmin && (
-                  <button
-                    onClick={onRequireAdmin}
-                    className="w-full mt-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-900 font-bold text-xs transition-colors shadow-xs"
-                  >
-                    <KeyRound className="w-3.5 h-3.5" />
-                    <span>Masuk Sebagai Admin</span>
-                  </button>
-                )}
+              <div className="flex flex-col sm:flex-row lg:flex-col gap-2 shrink-0">
+                <button
+                  onClick={() => onNavigate('ptk')}
+                  className="inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-white/20 hover:bg-white/30 text-white font-bold text-xs transition-all backdrop-blur-xs border border-white/20 active:scale-95"
+                >
+                  <Users className="w-4 h-4" />
+                  <span>Lihat Data Guru & Staf</span>
+                </button>
+                <button
+                  onClick={() => onNavigate('siswa')}
+                  className="inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-white/20 hover:bg-white/30 text-white font-bold text-xs transition-all backdrop-blur-xs border border-white/20 active:scale-95"
+                >
+                  <GraduationCap className="w-4 h-4" />
+                  <span>Lihat Data Siswa</span>
+                </button>
+                <button
+                  onClick={() => onNavigate('jadwal')}
+                  className="inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-emerald-700/80 hover:bg-emerald-600 text-white font-bold text-xs transition-all border border-emerald-500/30 active:scale-95"
+                >
+                  <Calendar className="w-4 h-4" />
+                  <span>Jadwal Pelajaran</span>
+                </button>
               </div>
             )}
           </div>

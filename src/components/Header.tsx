@@ -92,7 +92,7 @@ export const Header: React.FC<HeaderProps> = ({
                   <button
                     onClick={onLogoutAdmin}
                     className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 border border-transparent transition-colors"
-                    title="Kunci kembali ke Mode Pelihat"
+                    title="Kunci / Keluar Admin"
                   >
                     <span>Kunci</span>
                   </button>
