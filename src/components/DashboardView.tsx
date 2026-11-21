@@ -5,9 +5,12 @@ import {
   KegiatanSekolah,
   AlbumKegiatan,
   PresensiPtkRecord,
-  PresensiSiswaRecord
+  PresensiSiswaRecord,
+  SekolahInfo,
+  InfaqMusholaRecord
 } from '../types';
 import { SEKOLAH_INFO } from '../data/initialData';
+import { SekolahInfoModal } from './SekolahInfoModal';
 import {
   Users,
   GraduationCap,
@@ -31,7 +34,8 @@ import {
   Check,
   X,
   Lock,
-  KeyRound
+  KeyRound,
+  Coins
 } from 'lucide-react';
 import { TabKey } from './Sidebar';
 
@@ -50,6 +54,9 @@ interface DashboardViewProps {
   onEditPtk?: (ptk: PendidikTendik) => void;
   isAdmin?: boolean;
   onRequireAdmin?: () => void;
+  sekolahInfo?: SekolahInfo;
+  onSaveSekolahInfo?: (info: SekolahInfo) => void;
+  infaqMusholaList?: InfaqMusholaRecord[];
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
@@ -66,10 +73,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onOpenAddSiswa,
   onEditPtk,
   isAdmin = false,
-  onRequireAdmin
+  onRequireAdmin,
+  sekolahInfo = SEKOLAH_INFO,
+  onSaveSekolahInfo,
+  infaqMusholaList = []
 }) => {
+  const info = sekolahInfo || SEKOLAH_INFO;
   // Modal for editing principal message
   const [isEditingPesanModal, setIsEditingPesanModal] = useState(false);
+  const [isEditingSekolahModal, setIsEditingSekolahModal] = useState(false);
   const [tempPesan, setTempPesan] = useState(pesanKepsek);
 
   // Dynamically find teacher with Kepala Sekolah position
@@ -81,9 +93,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   const kepsekNamaLengkap = kepsek
     ? `${kepsek.nama}${kepsek.gelar && kepsek.gelar !== '-' ? `, ${kepsek.gelar}` : ''}`
-    : SEKOLAH_INFO.kepalaSekolah;
+    : info.kepalaSekolah;
 
-  const kepsekNip = kepsek?.nip && kepsek.nip !== '-' ? kepsek.nip : SEKOLAH_INFO.nipKepsek;
+  const kepsekNip = kepsek?.nip && kepsek.nip !== '-' ? kepsek.nip : info.nipKepsek;
   const kepsekFoto =
     kepsek?.fotoUrl ||
     'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&auto=format&fit=crop&q=80';
@@ -116,6 +128,18 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   // Latest photos
   const latestPhotos = albumList.slice(0, 3);
 
+  // Infaq Mushola summary
+  const totalInfaqMasuk = infaqMusholaList.reduce((sum, item) => sum + (Number(item.uangMasuk) || 0), 0);
+  const totalInfaqKeluar = infaqMusholaList.reduce((sum, item) => sum + (Number(item.uangKeluar) || 0), 0);
+  const saldoInfaqMushola = totalInfaqMasuk - totalInfaqKeluar;
+  const formatRupiah = (angka: number) =>
+    new Intl.NumberFormat('id-ID', {
+      style: 'currency',
+      currency: 'IDR',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(angka);
+
   return (
     <div className="space-y-6">
       {/* Hero Welcome Banner */}
@@ -123,11 +147,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <div className="absolute top-0 right-0 -mt-12 -mr-12 w-80 h-80 bg-white/10 rounded-full blur-2xl pointer-events-none" />
         <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5 max-w-3xl">
-            <div className="w-20 h-20 sm:w-24 sm:h-24 flex items-center justify-center shrink-0 drop-shadow-2xl">
+            <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-white p-1.5 border-4 border-emerald-400/40 shadow-2xl flex items-center justify-center shrink-0 overflow-hidden ring-4 ring-white/10 drop-shadow-xl">
               <img
                 src="/logo.png"
                 alt="Logo SDN 1 Gemenggeng"
-                className="w-full h-full object-contain filter drop-shadow-lg"
+                className="w-full h-full object-contain rounded-full"
                 referrerPolicy="no-referrer"
               />
             </div>
@@ -137,17 +161,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <span>Portal Resmi SDN 1 Gemenggeng &bull; Kurikulum Merdeka</span>
               </div>
               <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-white">
-                Selamat Datang di Sistem Informasi {SEKOLAH_INFO.nama}
+                Selamat Datang di Sistem Informasi {info.nama}
               </h1>
               <p className="text-sm sm:text-base text-emerald-100/90 leading-relaxed">
                 Mewujudkan ekosistem sekolah dasar yang unggul, terintegrasi, transparan, dan ramah anak di Kecamatan Pace, Kabupaten Nganjuk.
               </p>
               <div className="pt-2 flex flex-wrap gap-2 text-xs text-emerald-200">
                 <span className="bg-emerald-950/40 px-2.5 py-1 rounded-lg border border-emerald-700/50">
-                  NPSN: {SEKOLAH_INFO.npsn}
+                  NPSN: {info.npsn}
                 </span>
                 <span className="bg-emerald-950/40 px-2.5 py-1 rounded-lg border border-emerald-700/50">
-                  Akreditasi: {SEKOLAH_INFO.akreditasi}
+                  Akreditasi: {info.akreditasi}
                 </span>
                 <span className="bg-emerald-950/40 px-2.5 py-1 rounded-lg border border-emerald-700/50">
                   Semester Ganjil 2026/2027
@@ -161,8 +185,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             {isAdmin ? (
               <>
                 <button
-                  onClick={onOpenAddSiswa}
+                  onClick={() => setIsEditingSekolahModal(true)}
                   className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-900 font-bold text-xs transition-all shadow-sm active:scale-95"
+                >
+                  <Edit3 className="w-4 h-4 text-slate-900" />
+                  <span>Edit Profil & Akreditasi</span>
+                </button>
+                <button
+                  onClick={onOpenAddSiswa}
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white/20 hover:bg-white/30 text-white font-bold text-xs transition-all backdrop-blur-xs border border-white/20 active:scale-95"
                 >
                   <UserPlus className="w-4 h-4" />
                   <span>Input Siswa Berfoto</span>
@@ -180,6 +211,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 >
                   <FileEdit className="w-4 h-4" />
                   <span>Input Nilai Rapor</span>
+                </button>
+                <button
+                  onClick={() => onNavigate('infaq-mushola')}
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-teal-600/80 hover:bg-teal-500 text-white font-bold text-xs transition-all border border-teal-400/30 active:scale-95"
+                >
+                  <Coins className="w-4 h-4 text-amber-300" />
+                  <span>INFAQ Mushola</span>
                 </button>
               </>
             ) : (
@@ -204,6 +242,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 >
                   <Calendar className="w-4 h-4" />
                   <span>Jadwal Pelajaran</span>
+                </button>
+                <button
+                  onClick={() => onNavigate('infaq-mushola')}
+                  className="inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-900 font-bold text-xs transition-all shadow-sm active:scale-95"
+                >
+                  <Coins className="w-4 h-4 text-slate-900" />
+                  <span>INFAQ Mushola</span>
                 </button>
               </div>
             )}
@@ -577,6 +622,40 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               ))}
             </div>
           </div>
+
+          {/* Card Cepat Infaq Mushola SDN 1 Gemenggeng */}
+          <div
+            onClick={() => onNavigate('infaq-mushola')}
+            className="bg-gradient-to-br from-emerald-800 to-teal-900 text-white rounded-3xl p-5 shadow-md cursor-pointer hover:shadow-lg transition-all group border border-emerald-700/50"
+          >
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-white/15 text-amber-300 flex items-center justify-center">
+                  <Coins className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white">INFAQ Mushola</h3>
+                  <p className="text-[10px] text-emerald-200">SDN 1 Gemenggeng</p>
+                </div>
+              </div>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/15 text-emerald-100 group-hover:bg-amber-400 group-hover:text-slate-900 transition-colors">
+                Buka Kas
+              </span>
+            </div>
+
+            <div className="bg-black/20 rounded-2xl p-3 border border-white/10">
+              <span className="text-[10px] text-emerald-200 uppercase font-bold tracking-wider block">
+                Saldo Kas Mushola Saat Ini
+              </span>
+              <div className="text-lg font-black text-amber-300 mt-0.5">
+                {formatRupiah(saldoInfaqMushola)}
+              </div>
+              <div className="flex items-center justify-between text-[10px] text-emerald-100/80 mt-2 pt-2 border-t border-white/10">
+                <span>Masuk: {formatRupiah(totalInfaqMasuk)}</span>
+                <span>Keluar: {formatRupiah(totalInfaqKeluar)}</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -650,6 +729,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </form>
           </div>
         </div>
+      )}
+
+      {onSaveSekolahInfo && (
+        <SekolahInfoModal
+          isOpen={isEditingSekolahModal}
+          onClose={() => setIsEditingSekolahModal(false)}
+          sekolahInfo={info}
+          onSave={onSaveSekolahInfo}
+        />
       )}
     </div>
   );

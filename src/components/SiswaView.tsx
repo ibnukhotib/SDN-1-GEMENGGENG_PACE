@@ -53,6 +53,7 @@ export const SiswaView: React.FC<SiswaViewProps> = ({
   const [editingSiswa, setEditingSiswa] = useState<Siswa | null>(null);
   // Delete state
   const [siswaToDelete, setSiswaToDelete] = useState<Siswa | null>(null);
+  const [formError, setFormError] = useState('');
 
   // Form State
   const [formData, setFormData] = useState<Partial<Siswa>>({
@@ -73,6 +74,7 @@ export const SiswaView: React.FC<SiswaViewProps> = ({
 
   const openAddModal = () => {
     setEditingSiswa(null);
+    setFormError('');
     setFormData({
       nama: '',
       nisn: '',
@@ -92,6 +94,7 @@ export const SiswaView: React.FC<SiswaViewProps> = ({
 
   const openEditModal = (siswa: Siswa) => {
     setEditingSiswa(siswa);
+    setFormError('');
     setFormData({ ...siswa });
     setPreviewImage(siswa.fotoUrl);
     setIsAddModalOpen(true);
@@ -113,9 +116,10 @@ export const SiswaView: React.FC<SiswaViewProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.nama || !formData.nisn) {
-      alert('Nama dan NISN wajib diisi');
+      setFormError('Nama dan NISN wajib diisi');
       return;
     }
+    setFormError('');
 
     const newOrUpdatedSiswa: Siswa = {
       id: editingSiswa ? editingSiswa.id : `sis-${Date.now()}`,
@@ -444,6 +448,12 @@ export const SiswaView: React.FC<SiswaViewProps> = ({
                   </div>
                 </div>
               </div>
+
+              {formError && (
+                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700 font-semibold">
+                  {formError}
+                </div>
+              )}
 
               {/* Row 1: Nama & Kelas */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">

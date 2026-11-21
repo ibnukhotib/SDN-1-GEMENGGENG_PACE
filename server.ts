@@ -51,23 +51,81 @@ function getDefaultDatabase(): any {
     albumList: [],
     nilaiList: [],
     presensiPtk: [],
-    presensiSiswa: []
+    presensiSiswa: [],
+    infaqMusholaList: []
   };
 }
 
 function normalizeDatabase(data: any) {
-  if (!data || typeof data !== 'object' || !Array.isArray(data.ptkList)) {
+  if (!data || typeof data !== 'object') {
     return getDefaultDatabase();
   }
 
-  // Ensure Kepala Sekolah matches official record
+  const fallback = getDefaultDatabase();
+
+  // Ensure sekolahInfo exists
+  if (!data.sekolahInfo || typeof data.sekolahInfo !== 'object') {
+    data.sekolahInfo = fallback.sekolahInfo;
+  }
+
+  // Ensure arrays exist
+  if (!Array.isArray(data.ptkList)) {
+    data.ptkList = fallback.ptkList;
+  }
+  if (!Array.isArray(data.siswaList)) {
+    data.siswaList = fallback.siswaList;
+  }
+  if (!Array.isArray(data.jadwalList)) data.jadwalList = fallback.jadwalList || [];
+  if (!Array.isArray(data.kegiatanList)) data.kegiatanList = fallback.kegiatanList || [];
+  if (!Array.isArray(data.albumList)) data.albumList = fallback.albumList || [];
+  if (!Array.isArray(data.nilaiList)) data.nilaiList = fallback.nilaiList || [];
+  if (!Array.isArray(data.presensiPtk)) data.presensiPtk = fallback.presensiPtk || [];
+  if (!Array.isArray(data.presensiSiswa)) data.presensiSiswa = fallback.presensiSiswa || [];
+  if (!Array.isArray(data.infaqMusholaList)) {
+    data.infaqMusholaList = Array.isArray(fallback.infaqMusholaList) && fallback.infaqMusholaList.length > 0
+      ? fallback.infaqMusholaList
+      : [
+          {
+            id: 'infaq-1',
+            tanggal: '2026-11-02',
+            uraian: 'Saldo Awal Kas Infaq Mushola SDN 1 Gemenggeng',
+            uangMasuk: 1250000,
+            uangKeluar: 0
+          },
+          {
+            id: 'infaq-2',
+            tanggal: '2026-11-06',
+            uraian: 'Infaq Jumat Siswa Kelas 1 s/d 6 & Dewan Guru',
+            uangMasuk: 285000,
+            uangKeluar: 0
+          },
+          {
+            id: 'infaq-3',
+            tanggal: '2026-11-09',
+            uraian: 'Pembelian Mukena, Sarung, dan Sajadah Mushola',
+            uangMasuk: 0,
+            uangKeluar: 350000
+          },
+          {
+            id: 'infaq-4',
+            tanggal: '2026-11-13',
+            uraian: 'Infaq Jumat & Donasi Wali Murid',
+            uangMasuk: 340000,
+            uangKeluar: 0
+          },
+          {
+            id: 'infaq-5',
+            tanggal: '2026-11-16',
+            uraian: 'Perawatan Kran Tempat Wudhu & Kebersihan Mushola',
+            uangMasuk: 0,
+            uangKeluar: 125000
+          }
+        ];
+  }
+
+  // Migrasi aman: hanya ganti jika data masih mengandung nama lama 'suyanto'
   data.ptkList = data.ptkList.map((p: any) => {
-    if (
-      p.id === 'ptk-1' ||
-      p.jabatan?.toLowerCase().includes('kepala sekolah') ||
-      p.jabatan?.toLowerCase().includes('kepsek') ||
-      p.nama?.toLowerCase().includes('suyanto')
-    ) {
+    if (p.nama && p.nama.toLowerCase().includes('suyanto')) {
       return {
         ...p,
         nama: 'VITA DEWI SUSANTI',
@@ -75,10 +133,7 @@ function normalizeDatabase(data: any) {
         nip: '19830723 200604 2 022',
         jenisKelamin: 'Perempuan',
         email: 'vitadewisusanti.gemenggeng@gmail.com',
-        fotoUrl:
-          p.fotoUrl && !p.fotoUrl.includes('photo-1544717305')
-            ? p.fotoUrl
-            : 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&auto=format&fit=crop&q=80'
+        fotoUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&auto=format&fit=crop&q=80'
       };
     }
     return p;
@@ -110,7 +165,14 @@ function writeDatabase(data: any) {
       ...data,
       lastUpdated: new Date().toISOString()
     };
-    fs.writeFileSync(DB_FILE, JSON.stringify(payload, null, 2), 'utf-8');
+    const jsonStr = JSON.stringify(payload, null, 2);
+    fs.writeFileSync(DB_FILE, jsonStr, 'utf-8');
+    // Also keep backup in DEFAULT_DB_FILE to prevent any regression to factory state
+    try {
+      fs.writeFileSync(DEFAULT_DB_FILE, jsonStr, 'utf-8');
+    } catch {
+      // ignore backup write error
+    }
     return payload;
   } catch (err) {
     console.error('Error writing database file:', err);
@@ -129,9 +191,15 @@ app.get('/api/health', (_req, res) => {
   });
 });
 
-// Get full school data
+// Get full school data with strict anti-cache headers
 app.get('/api/school-data', (_req, res) => {
   try {
+    res.set({
+      'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+      'Pragma': 'no-cache',
+      'Expires': '0',
+      'Surrogate-Control': 'no-store'
+    });
     const db = readDatabase();
     res.json({
       success: true,
@@ -142,35 +210,36 @@ app.get('/api/school-data', (_req, res) => {
   }
 });
 
-// Save or sync full school data (from Laptop or HP)
+// Save or sync full/partial school data (from Laptop or HP)
 app.post('/api/school-data', (req, res) => {
   try {
     const incomingData = req.body;
-    if (!incomingData || !Array.isArray(incomingData.ptkList)) {
+    if (!incomingData || typeof incomingData !== 'object') {
       return res.status(400).json({ success: false, message: 'Invalid data format' });
     }
 
     const current = readDatabase();
     const merged = {
       ...current,
-      ...incomingData,
-      ptkList: incomingData.ptkList || current.ptkList,
-      siswaList: incomingData.siswaList || current.siswaList,
-      jadwalList: incomingData.jadwalList || current.jadwalList,
-      kegiatanList: incomingData.kegiatanList || current.kegiatanList,
-      albumList: incomingData.albumList || current.albumList,
-      nilaiList: incomingData.nilaiList || current.nilaiList,
-      presensiPtk: incomingData.presensiPtk || current.presensiPtk,
-      presensiSiswa: incomingData.presensiSiswa || current.presensiSiswa,
-      pesanKepsek: incomingData.pesanKepsek ?? current.pesanKepsek
+      ...(incomingData.sekolahInfo ? { sekolahInfo: { ...current.sekolahInfo, ...incomingData.sekolahInfo } } : {}),
+      ...(Array.isArray(incomingData.ptkList) ? { ptkList: incomingData.ptkList } : {}),
+      ...(Array.isArray(incomingData.siswaList) ? { siswaList: incomingData.siswaList } : {}),
+      ...(Array.isArray(incomingData.jadwalList) ? { jadwalList: incomingData.jadwalList } : {}),
+      ...(Array.isArray(incomingData.kegiatanList) ? { kegiatanList: incomingData.kegiatanList } : {}),
+      ...(Array.isArray(incomingData.albumList) ? { albumList: incomingData.albumList } : {}),
+      ...(Array.isArray(incomingData.nilaiList) ? { nilaiList: incomingData.nilaiList } : {}),
+      ...(Array.isArray(incomingData.presensiPtk) ? { presensiPtk: incomingData.presensiPtk } : {}),
+      ...(Array.isArray(incomingData.presensiSiswa) ? { presensiSiswa: incomingData.presensiSiswa } : {}),
+      ...(Array.isArray(incomingData.infaqMusholaList) ? { infaqMusholaList: incomingData.infaqMusholaList } : {}),
+      ...(incomingData.pesanKepsek !== undefined ? { pesanKepsek: incomingData.pesanKepsek } : {})
     };
 
     const saved = writeDatabase(normalizeDatabase(merged));
     res.json({
       success: true,
       lastUpdated: saved.lastUpdated,
-      countPtk: saved.ptkList.length,
-      countSiswa: saved.siswaList.length
+      countPtk: saved.ptkList?.length || 0,
+      countSiswa: saved.siswaList?.length || 0
     });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });

@@ -1,4 +1,4 @@
-import type { PendidikTendik, Siswa, JadwalPelajaran, KegiatanSekolah, AlbumKegiatan, NilaiSiswaRecord, PresensiPtkRecord, PresensiSiswaRecord } from '../types/index.ts';
+import type { PendidikTendik, Siswa, JadwalPelajaran, KegiatanSekolah, AlbumKegiatan, NilaiSiswaRecord, PresensiPtkRecord, PresensiSiswaRecord, InfaqMusholaRecord } from '../types/index.ts';
 
 export const SEKOLAH_INFO = {
   nama: 'SDN 1 GEMENGGENG',
@@ -910,3 +910,42 @@ export const INITIAL_PRESENSI_SISWA: PresensiSiswaRecord[] = INITIAL_SISWA.map((
     keterangan
   };
 });
+
+export const INITIAL_INFAQ_MUSHOLA: InfaqMusholaRecord[] = [
+  {
+    id: 'infaq-1',
+    tanggal: '2026-11-02',
+    uraian: 'Saldo Awal Kas Infaq Mushola SDN 1 Gemenggeng',
+    uangMasuk: 1250000,
+    uangKeluar: 0
+  },
+  {
+    id: 'infaq-2',
+    tanggal: '2026-11-06',
+    uraian: 'Infaq Jumat Siswa Kelas 1 s/d 6 & Dewan Guru',
+    uangMasuk: 285000,
+    uangKeluar: 0
+  },
+  {
+    id: 'infaq-3',
+    tanggal: '2026-11-09',
+    uraian: 'Pembelian Mukena, Sarung, dan Sajadah Mushola',
+    uangMasuk: 0,
+    uangKeluar: 350000
+  },
+  {
+    id: 'infaq-4',
+    tanggal: '2026-11-13',
+    uraian: 'Infaq Jumat & Donasi Wali Murid',
+    uangMasuk: 340000,
+    uangKeluar: 0
+  },
+  {
+    id: 'infaq-5',
+    tanggal: '2026-11-16',
+    uraian: 'Perawatan Kran Tempat Wudhu & Kebersihan Mushola',
+    uangMasuk: 0,
+    uangKeluar: 125000
+  }
+];
+

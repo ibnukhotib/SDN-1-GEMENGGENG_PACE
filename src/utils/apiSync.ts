@@ -6,12 +6,15 @@ import {
   AlbumKegiatan,
   NilaiSiswaRecord,
   PresensiPtkRecord,
-  PresensiSiswaRecord
+  PresensiSiswaRecord,
+  SekolahInfo,
+  InfaqMusholaRecord
 } from '../types';
 
 export interface FullSchoolData {
   version?: number;
   lastUpdated?: string;
+  sekolahInfo?: SekolahInfo;
   ptkList: PendidikTendik[];
   siswaList: Siswa[];
   jadwalList: JadwalPelajaran[];
@@ -20,17 +23,23 @@ export interface FullSchoolData {
   nilaiList: NilaiSiswaRecord[];
   presensiPtk: PresensiPtkRecord[];
   presensiSiswa: PresensiSiswaRecord[];
+  infaqMusholaList?: InfaqMusholaRecord[];
   pesanKepsek?: string;
 }
 
 export const ApiSync = {
   /**
-   * Fetch latest school data from centralized server
+   * Fetch latest school data from centralized server with cache-busting
    */
   fetchSchoolData: async (): Promise<FullSchoolData | null> => {
     try {
-      const res = await fetch('/api/school-data', {
-        headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' }
+      const res = await fetch(`/api/school-data?t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
       });
       if (!res.ok) {
         console.warn('Server responded with status:', res.status);
@@ -50,7 +59,9 @@ export const ApiSync = {
   /**
    * Push school data update to centralized server
    */
-  saveSchoolData: async (data: Partial<FullSchoolData>): Promise<boolean> => {
+  saveSchoolData: async (
+    data: Partial<FullSchoolData>
+  ): Promise<{ success: boolean; lastUpdated?: string }> => {
     try {
       const res = await fetch('/api/school-data', {
         method: 'POST',
@@ -59,12 +70,12 @@ export const ApiSync = {
         },
         body: JSON.stringify(data)
       });
-      if (!res.ok) return false;
+      if (!res.ok) return { success: false };
       const json = await res.json();
-      return !!json.success;
+      return { success: !!json.success, lastUpdated: json.lastUpdated };
     } catch (err) {
       console.warn('Failed to sync to server:', err);
-      return false;
+      return { success: false };
     }
   },
 

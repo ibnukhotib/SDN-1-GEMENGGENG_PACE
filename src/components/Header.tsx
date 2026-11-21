@@ -1,6 +1,8 @@
 import React from 'react';
-import { Menu, Calendar, RefreshCw, Printer, ShieldCheck, Eye, KeyRound, Cloud } from 'lucide-react';
+import { Menu, Calendar, Printer, ShieldCheck, KeyRound } from 'lucide-react';
 import { SEKOLAH_INFO } from '../data/initialData';
+import { SekolahInfo } from '../types';
+import { PWAInstallButton } from './PWAInstallButton';
 
 interface HeaderProps {
   onToggleSidebar: () => void;
@@ -8,8 +10,7 @@ interface HeaderProps {
   isAdmin: boolean;
   onOpenAdminModal: () => void;
   onLogoutAdmin: () => void;
-  isSyncing?: boolean;
-  onOpenSyncModal: () => void;
+  sekolahInfo?: SekolahInfo;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -17,9 +18,9 @@ export const Header: React.FC<HeaderProps> = ({
   isAdmin,
   onOpenAdminModal,
   onLogoutAdmin,
-  isSyncing = false,
-  onOpenSyncModal
+  sekolahInfo = SEKOLAH_INFO
 }) => {
+  const info = sekolahInfo || SEKOLAH_INFO;
 
   const currentDate = new Intl.DateTimeFormat('id-ID', {
     weekday: 'long',
@@ -45,25 +46,25 @@ export const Header: React.FC<HeaderProps> = ({
               </button>
 
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 flex items-center justify-center shrink-0">
+                <div className="w-10 h-10 rounded-full bg-white p-0.5 border-2 border-emerald-600/30 shadow-xs flex items-center justify-center shrink-0 overflow-hidden ring-2 ring-emerald-500/10">
                   <img
                     src="/logo.png"
                     alt="Logo SDN 1 Gemenggeng"
-                    className="w-full h-full object-contain drop-shadow-xs"
+                    className="w-full h-full object-contain rounded-full"
                     referrerPolicy="no-referrer"
                   />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="font-extrabold text-slate-900 tracking-tight text-lg">
-                      {SEKOLAH_INFO.nama}
+                      {info.nama}
                     </span>
                     <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                      NPSN {SEKOLAH_INFO.npsn}
+                      NPSN {info.npsn}
                     </span>
                   </div>
                   <p className="text-xs text-slate-500 hidden sm:block">
-                    Kec. Pace, Kab. Nganjuk &bull; Akreditasi {SEKOLAH_INFO.akreditasi}
+                    Kec. Pace, Kab. Nganjuk &bull; Akreditasi {info.akreditasi}
                   </p>
                 </div>
               </div>
@@ -108,19 +109,7 @@ export const Header: React.FC<HeaderProps> = ({
                 </button>
               )}
 
-              {/* Cloud Sync Status & Multi-Device Control */}
-              <button
-                onClick={onOpenSyncModal}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200/80 hover:bg-emerald-100 transition-colors shadow-2xs"
-                title="Sinkronisasi Data Multi-Perangkat (Laptop & HP)"
-              >
-                <div className="relative flex items-center justify-center">
-                  <Cloud className="w-3.5 h-3.5 text-emerald-600" />
-                  <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                </div>
-                <span className="hidden sm:inline">Sinkronisasi</span>
-                <RefreshCw className={`w-3 h-3 text-emerald-600 ${isSyncing ? 'animate-spin' : ''}`} />
-              </button>
+              <PWAInstallButton variant="header" />
 
               <button
                 onClick={() => window.print()}

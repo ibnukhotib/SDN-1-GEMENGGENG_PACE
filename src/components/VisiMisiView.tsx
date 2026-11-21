@@ -1,6 +1,6 @@
 import React from 'react';
 import { SEKOLAH_INFO } from '../data/initialData';
-import { PendidikTendik } from '../types';
+import { SekolahInfo, PendidikTendik } from '../types';
 import {
   Compass,
   Sparkles,
@@ -14,7 +14,10 @@ import {
   School,
   CheckCircle2,
   Download,
-  Flame,
+  GraduationCap,
+  PenTool,
+  Wheat,
+  Sun,
   Shield,
   Palette
 } from 'lucide-react';
@@ -22,12 +25,14 @@ import { PrintHeader } from './PrintHeader';
 
 interface VisiMisiViewProps {
   kepsek?: PendidikTendik;
+  sekolahInfo?: SekolahInfo;
 }
 
-export const VisiMisiView: React.FC<VisiMisiViewProps> = ({ kepsek }) => {
+export const VisiMisiView: React.FC<VisiMisiViewProps> = ({ kepsek, sekolahInfo = SEKOLAH_INFO }) => {
+  const info = sekolahInfo || SEKOLAH_INFO;
   const kepsekNama = kepsek
     ? `${kepsek.nama}${kepsek.gelar && kepsek.gelar !== '-' ? `, ${kepsek.gelar}` : ''}`
-    : SEKOLAH_INFO.kepalaSekolah;
+    : info.kepalaSekolah;
   const dimensiPancasila = [
     { title: 'Beriman & Bertakwa', desc: 'Berakhlak mulia kepada Tuhan YME, sesama manusia, dan alam sekitar.' },
     { title: 'Berkebinekaan Global', desc: 'Menghargai budaya nusantara serta berwawasan terbuka terhadap peradaban dunia.' },
@@ -49,6 +54,7 @@ export const VisiMisiView: React.FC<VisiMisiViewProps> = ({ kepsek }) => {
       <PrintHeader
         judulDokumen="VISI, MISI DAN TUJUAN PENDIDIKAN"
         subJudul="SDN 1 GEMENGGENG - KECAMATAN PACE, KABUPATEN NGANJUK"
+        sekolahInfo={info}
       />
 
       {/* Screen Title */}
@@ -77,11 +83,11 @@ export const VisiMisiView: React.FC<VisiMisiViewProps> = ({ kepsek }) => {
       {/* Identitas Sekolah Card */}
       <div className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-2xs">
         <div className="flex items-center gap-4 mb-4 pb-3 border-b border-slate-100">
-          <div className="w-14 h-14 flex items-center justify-center shrink-0 drop-shadow-xs">
+          <div className="w-14 h-14 rounded-full bg-white p-0.5 border-2 border-emerald-600/30 shadow-xs flex items-center justify-center shrink-0 overflow-hidden ring-2 ring-emerald-500/10">
             <img
               src="/logo.png"
               alt="Logo SDN 1 Gemenggeng"
-              className="w-full h-full object-contain"
+              className="w-full h-full object-contain rounded-full"
               referrerPolicy="no-referrer"
             />
           </div>
@@ -98,29 +104,29 @@ export const VisiMisiView: React.FC<VisiMisiViewProps> = ({ kepsek }) => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
           <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/60">
             <span className="text-slate-400 font-medium block mb-0.5">Nama Satuan:</span>
-            <span className="font-bold text-slate-900 text-sm">{SEKOLAH_INFO.nama}</span>
+            <span className="font-bold text-slate-900 text-sm">{info.nama}</span>
           </div>
           <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/60">
             <span className="text-slate-400 font-medium block mb-0.5">NPSN:</span>
-            <span className="font-bold text-slate-900 font-mono text-sm">{SEKOLAH_INFO.npsn}</span>
+            <span className="font-bold text-slate-900 font-mono text-sm">{info.npsn}</span>
           </div>
           <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/60">
             <span className="text-slate-400 font-medium block mb-0.5">Akreditasi & Kurikulum:</span>
-            <span className="font-bold text-emerald-700">{SEKOLAH_INFO.akreditasi} &bull; {SEKOLAH_INFO.kurikulum}</span>
+            <span className="font-bold text-emerald-700">{info.akreditasi} &bull; {info.kurikulum}</span>
           </div>
           <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/60">
             <span className="text-slate-400 font-medium block mb-0.5">Kepala Sekolah:</span>
             <span className="font-bold text-slate-900 block truncate">{kepsekNama}</span>
             <span className="text-[10px] text-emerald-700 font-mono mt-0.5 block">
-              NIP: {kepsek?.nip && kepsek.nip !== '-' ? kepsek.nip : SEKOLAH_INFO.nipKepsek}
+              NIP: {kepsek?.nip && kepsek.nip !== '-' ? kepsek.nip : info.nipKepsek}
             </span>
           </div>
         </div>
 
         <div className="mt-4 pt-3 border-t border-slate-100 text-xs text-slate-500 flex flex-wrap gap-4">
-          <span><strong>Alamat:</strong> {SEKOLAH_INFO.alamat}</span>
-          <span><strong>Telepon:</strong> {SEKOLAH_INFO.telepon}</span>
-          <span><strong>Email:</strong> {SEKOLAH_INFO.email}</span>
+          <span><strong>Alamat:</strong> {info.alamat}</span>
+          <span><strong>Telepon:</strong> {info.telepon}</span>
+          <span><strong>Email:</strong> {info.email}</span>
         </div>
       </div>
 
@@ -195,16 +201,16 @@ export const VisiMisiView: React.FC<VisiMisiViewProps> = ({ kepsek }) => {
       </div>
 
       {/* Makna Lambang & Logo Sekolah Card */}
-      <div className="bg-gradient-to-br from-white to-emerald-50/40 rounded-3xl border border-emerald-200/80 p-6 sm:p-7 shadow-xs">
+      <div className="bg-gradient-to-br from-white to-emerald-50/40 rounded-3xl border border-emerald-200/80 p-6 sm:p-8 shadow-xs space-y-6">
         <div className="flex flex-col lg:flex-row items-center gap-6 lg:gap-8">
           {/* Logo Showcase Visual */}
           <div className="flex flex-col items-center text-center shrink-0">
             <div className="relative group">
-              <div className="w-40 h-40 sm:w-48 sm:h-48 flex items-center justify-center drop-shadow-2xl transition-transform duration-300 group-hover:scale-105">
+              <div className="w-40 h-40 sm:w-48 sm:h-48 rounded-full bg-white p-2 border-4 border-emerald-600/30 shadow-2xl flex items-center justify-center overflow-hidden ring-4 ring-emerald-500/10 drop-shadow-xl transition-transform duration-300 group-hover:scale-105">
                 <img
                   src="/logo.png"
                   alt="Logo Resmi SDN 1 Gemenggeng"
-                  className="w-full h-full object-contain filter drop-shadow-xl"
+                  className="w-full h-full object-contain rounded-full"
                   referrerPolicy="no-referrer"
                 />
               </div>
@@ -232,56 +238,133 @@ export const VisiMisiView: React.FC<VisiMisiViewProps> = ({ kepsek }) => {
           <div className="space-y-4 flex-1">
             <div>
               <span className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-700">
-                Identitas Visual & Karakter
+                Identitas Visual & Karakter Sekolah
               </span>
               <h3 className="text-lg sm:text-xl font-black text-slate-900 mt-0.5">
                 Filosofi & Makna Lambang SDN 1 Gemenggeng
               </h3>
               <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-                Dirancang dengan bentuk lingkaran harmonis yang melambangkan kebulatan tekad, persatuan warga sekolah, dan kesinambungan pendidikan yang tiada henti.
+                Lambang resmi SDN 1 Gemenggeng memadukan nilai spiritualitas, keluhuran budi pekerti, semangat literasi, dan tekad meraih prestasi tertinggi dalam bingkai bintang segi delapan serta untaian padi emas yang berwawasan lingkungan asri.
               </p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-              <div className="p-3 rounded-2xl bg-white border border-slate-200/80 space-y-1 shadow-2xs">
+              {/* 1. Bingkai Bintang Segi Delapan (Astakona) Hijau */}
+              <div className="p-3.5 rounded-2xl bg-white border border-slate-200/80 space-y-1.5 shadow-2xs hover:border-emerald-300 transition-colors">
                 <div className="flex items-center gap-2 text-emerald-800 font-bold">
-                  <Flame className="w-4 h-4 text-amber-500 shrink-0" />
-                  <span>Obor Ilmu & Bunga Teratai</span>
+                  <Shield className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>Bintang Segi Delapan (Astakona) Hijau</span>
                 </div>
                 <p className="text-[11px] text-slate-600 leading-snug">
-                  Cahaya petunjuk dan semangat belajar yang tak pernah padam, serta kesucian budi pekerti luhur peserta didik.
+                  Melambangkan keteguhan iman dan takwa, 8 penjuru mata angin kebermanfaatan, keteraturan hidup, serta perlindungan sekolah yang ramah anak dan berwawasan lingkungan hidup (Adiwiyata).
                 </p>
               </div>
 
-              <div className="p-3 rounded-2xl bg-white border border-slate-200/80 space-y-1 shadow-2xs">
+              {/* 2. Topi Toga Sarjana */}
+              <div className="p-3.5 rounded-2xl bg-white border border-slate-200/80 space-y-1.5 shadow-2xs hover:border-emerald-300 transition-colors">
                 <div className="flex items-center gap-2 text-emerald-800 font-bold">
-                  <BookOpen className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>Buku Terbuka & Daun Padi</span>
+                  <GraduationCap className="w-4 h-4 text-indigo-600 shrink-0" />
+                  <span>Topi Toga Sarjana (Kelulusan)</span>
                 </div>
                 <p className="text-[11px] text-slate-600 leading-snug">
-                  Fondasi literasi, ilmu pengetahuan luas, serta kemakmuran dan kerendahan hati dalam menggapai cita-cita.
+                  Berada di puncak lambang, mencerminkan cita-cita setinggi langit, puncak prestasi akademik, dan komitmen mengantarkan seluruh peserta didik meraih kelulusan gemilang ke jenjang tertinggi.
                 </p>
               </div>
 
-              <div className="p-3 rounded-2xl bg-white border border-slate-200/80 space-y-1 shadow-2xs">
+              {/* 3. Mata Pena Presisi */}
+              <div className="p-3.5 rounded-2xl bg-white border border-slate-200/80 space-y-1.5 shadow-2xs hover:border-emerald-300 transition-colors">
                 <div className="flex items-center gap-2 text-emerald-800 font-bold">
-                  <Shield className="w-4 h-4 text-blue-600 shrink-0" />
-                  <span>Perisai & Bintang Kejora</span>
+                  <PenTool className="w-4 h-4 text-slate-800 shrink-0" />
+                  <span>Mata Pena (Pen Nib) Tegak Lurus</span>
                 </div>
                 <p className="text-[11px] text-slate-600 leading-snug">
-                  Ketahanan moral dan perlindungan generasi muda berlandaskan Ketuhanan Yang Maha Esa dan nilai Pancasila.
+                  Melambangkan ketajaman daya nalar, kreativitas, keahlian berkarya/menulis, dan keteguhan tekad menuntut ilmu pengetahuan secara konsisten sepanjang hayat (<em>life-long learning</em>).
                 </p>
               </div>
 
-              <div className="p-3 rounded-2xl bg-white border border-slate-200/80 space-y-1 shadow-2xs">
+              {/* 4. Buku Terbuka */}
+              <div className="p-3.5 rounded-2xl bg-white border border-slate-200/80 space-y-1.5 shadow-2xs hover:border-emerald-300 transition-colors">
                 <div className="flex items-center gap-2 text-emerald-800 font-bold">
-                  <Palette className="w-4 h-4 text-purple-600 shrink-0" />
-                  <span>Pita Slogan & Warna Hijau-Emas</span>
+                  <BookOpen className="w-4 h-4 text-teal-600 shrink-0" />
+                  <span>Buku Terbuka (Gerbang Literasi)</span>
                 </div>
                 <p className="text-[11px] text-slate-600 leading-snug">
-                  "Cerdas, Berkarakter, Berbudaya" &mdash; Hijau zamrud melambangkan pertumbuhan asri Adiwiyata, emas melambangkan prestasi gemilang.
+                  Melambangkan cakrawala ilmu yang luas, keterbukaan pikiran terhadap wawasan dunia, budaya gemar membaca (Gerakan Literasi Sekolah), dan kesiapan menghadapi era digital abad ke-21.
                 </p>
               </div>
+
+              {/* 5. Untaian Padi Kuning Keemasan */}
+              <div className="p-3.5 rounded-2xl bg-white border border-slate-200/80 space-y-1.5 shadow-2xs hover:border-emerald-300 transition-colors">
+                <div className="flex items-center gap-2 text-emerald-800 font-bold">
+                  <Wheat className="w-4 h-4 text-amber-500 shrink-0" />
+                  <span>Untaian Padi Emas (Kiri & Kanan)</span>
+                </div>
+                <p className="text-[11px] text-slate-600 leading-snug">
+                  Melambangkan kemakmuran, kecerdasan, dan falsafah padi: <em>"semakin berisi semakin merunduk"</em> &mdash; mendidik siswa yang unggul berprestasi namun tetap santun, rendah hati, dan berbudi pekerti luhur.
+                </p>
+              </div>
+
+              {/* 6. Busur Sinar Mentari & Pita Nama Sekolah */}
+              <div className="p-3.5 rounded-2xl bg-white border border-slate-200/80 space-y-1.5 shadow-2xs hover:border-emerald-300 transition-colors">
+                <div className="flex items-center gap-2 text-emerald-800 font-bold">
+                  <Sun className="w-4 h-4 text-orange-500 shrink-0" />
+                  <span>Busur Sinar & Pita Almamater</span>
+                </div>
+                <p className="text-[11px] text-slate-600 leading-snug">
+                  Lengkungan fajar keemasan memancarkan harapan baru dan kehangatan belajar, ditopang pita emas bertuliskan <strong>"SD NEGERI 1 GEMENGGENG"</strong> sebagai kebanggaan dan kehormatan almamater.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Makna Filosofi Warna */}
+        <div className="pt-4 border-t border-emerald-200/60">
+          <div className="flex items-center gap-2 mb-3">
+            <Palette className="w-4 h-4 text-emerald-700" />
+            <h4 className="text-xs font-black uppercase tracking-wider text-slate-800">
+              Filosofi Warna Lambang
+            </h4>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
+            <div className="p-2.5 rounded-xl bg-emerald-50/80 border border-emerald-200/80">
+              <div className="flex items-center gap-1.5 font-bold text-emerald-900">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-600 shrink-0" />
+                <span>Hijau Zamrud</span>
+              </div>
+              <p className="text-[11px] text-emerald-800 mt-1 leading-snug">
+                Kesuburan alam pedesaan Gemenggeng, ketenangan batin, akhlak mulia, dan wawasan lingkungan (Adiwiyata).
+              </p>
+            </div>
+
+            <div className="p-2.5 rounded-xl bg-amber-50/80 border border-amber-200/80">
+              <div className="flex items-center gap-1.5 font-bold text-amber-900">
+                <span className="w-2.5 h-2.5 rounded-full bg-amber-500 shrink-0" />
+                <span>Kuning Emas</span>
+              </div>
+              <p className="text-[11px] text-amber-800 mt-1 leading-snug">
+                Kejayaan, kemakmuran, optimisme fajar masa depan, serta prestasi gemilang yang membanggakan.
+              </p>
+            </div>
+
+            <div className="p-2.5 rounded-xl bg-slate-100/90 border border-slate-200/80">
+              <div className="flex items-center gap-1.5 font-bold text-slate-900">
+                <span className="w-2.5 h-2.5 rounded-full bg-slate-800 shrink-0" />
+                <span>Biru Dongker / Hitam</span>
+              </div>
+              <p className="text-[11px] text-slate-700 mt-1 leading-snug">
+                Kedalaman ilmu pengetahuan, ketenangan nalar, ketegasan sikap, kedisiplinan, dan integritas pendidik.
+              </p>
+            </div>
+
+            <div className="p-2.5 rounded-xl bg-white border border-slate-200/80">
+              <div className="flex items-center gap-1.5 font-bold text-slate-900">
+                <span className="w-2.5 h-2.5 rounded-full bg-slate-300 border border-slate-400 shrink-0" />
+                <span>Putih Bersih</span>
+              </div>
+              <p className="text-[11px] text-slate-600 mt-1 leading-snug">
+                Kesucian hati nurani, keikhlasan bapak/ibu guru dalam membimbing, dan kejujuran generasi bangsa.
+              </p>
             </div>
           </div>
         </div>

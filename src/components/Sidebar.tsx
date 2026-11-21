@@ -15,9 +15,11 @@ import {
   Sparkles,
   ShieldCheck,
   Lock,
-  KeyRound
+  KeyRound,
+  Coins
 } from 'lucide-react';
 import { SEKOLAH_INFO } from '../data/initialData';
+import { PWAInstallButton } from './PWAInstallButton';
 
 export type TabKey =
   | 'dashboard'
@@ -29,6 +31,7 @@ export type TabKey =
   | 'nilai'
   | 'kegiatan'
   | 'album'
+  | 'infaq-mushola'
   | 'visi-misi';
 
 interface SidebarProps {
@@ -41,6 +44,7 @@ interface SidebarProps {
     siswaCount: number;
     kegiatanCount: number;
     albumCount: number;
+    infaqCount?: number;
   };
   isAdmin?: boolean;
   onOpenAdminModal?: () => void;
@@ -133,6 +137,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
           label: 'Album Kegiatan',
           icon: ImageIcon,
           badge: counts.albumCount
+        },
+        {
+          key: 'infaq-mushola' as TabKey,
+          label: 'Infaq Mushola',
+          icon: Coins,
+          badge: counts.infaqCount ?? 'Kas'
         }
       ]
     }
@@ -157,11 +167,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Sidebar Header */}
         <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-gradient-to-br from-emerald-700 to-teal-800 text-white">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 flex items-center justify-center shrink-0 drop-shadow-md">
+            <div className="w-11 h-11 rounded-full bg-white p-0.5 border-2 border-emerald-400/40 shadow-md flex items-center justify-center shrink-0 overflow-hidden ring-2 ring-white/20">
               <img
                 src="/logo.png"
                 alt="Logo SDN 1 Gemenggeng"
-                className="w-full h-full object-contain filter drop-shadow-sm"
+                className="w-full h-full object-contain rounded-full"
                 referrerPolicy="no-referrer"
               />
             </div>
@@ -234,6 +244,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Footer info in sidebar */}
         <div className="p-3 border-t border-slate-100 bg-slate-50/70 space-y-2">
+          {/* Tombol Pasang Aplikasi PWA */}
+          <PWAInstallButton variant="sidebar" />
+
           {/* Role Status Card */}
           <div
             onClick={onOpenAdminModal}

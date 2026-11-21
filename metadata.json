@@ -1,0 +1,6 @@
+{
+  "name": "SDN 1 GEMENGGENG - Sistem Informasi Sekolah",
+  "description": "Aplikasi sekolah dasar berbasis web SDN 1 Gemenggeng: dashboard interaktif, visi misi, data PTK, jadwal pelajaran, data siswa berfoto, presensi, daftar nilai, kegiatan, dan album.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

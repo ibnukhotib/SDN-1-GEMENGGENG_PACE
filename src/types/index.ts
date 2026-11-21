@@ -1,6 +1,22 @@
 export type Role = 'admin' | 'guru' | 'kepsek' | 'tata_usaha';
 export type UserRole = 'admin' | 'viewer';
 
+export interface SekolahInfo {
+  nama: string;
+  npsn: string;
+  akreditasi: string;
+  kurikulum: string;
+  alamat: string;
+  telepon: string;
+  email: string;
+  logoUrl: string;
+  kepalaSekolah: string;
+  nipKepsek: string;
+  visi: string;
+  misi: string[];
+  tujuan: string[];
+}
+
 export type StatusKepegawaian = 'PNS' | 'PPPK' | 'GTT' | 'PTT';
 
 export interface PendidikTendik {
@@ -106,3 +122,12 @@ export interface AlbumKegiatan {
   fotoUrl: string;
   jumlahFoto?: number;
 }
+
+export interface InfaqMusholaRecord {
+  id: string;
+  tanggal: string; // YYYY-MM-DD
+  uraian: string;
+  uangMasuk: number;
+  uangKeluar: number;
+}
+
