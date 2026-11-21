@@ -27,11 +27,20 @@ export interface FullSchoolData {
   pesanKepsek?: string;
 }
 
+export type ServerSyncStatus = 'connected' | 'needs-setup' | 'offline';
+
+export interface FetchResult {
+  data: FullSchoolData | null;
+  status: ServerSyncStatus;
+  isEmpty?: boolean;
+  message?: string;
+}
+
 export const ApiSync = {
   /**
-   * Fetch latest school data from centralized server with cache-busting
+   * Fetch latest school data and detect server/Vercel cloud storage status
    */
-  fetchSchoolData: async (): Promise<FullSchoolData | null> => {
+  fetchSchoolDataWithStatus: async (): Promise<FetchResult> => {
     try {
       const res = await fetch(`/api/school-data?t=${Date.now()}`, {
         cache: 'no-store',
@@ -41,19 +50,53 @@ export const ApiSync = {
           'Expires': '0'
         }
       });
-      if (!res.ok) {
-        console.warn('Server responded with status:', res.status);
-        return null;
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        return {
+          data: null,
+          status: 'needs-setup',
+          message: 'Server API tidak ditemukan pada hosting ini.'
+        };
       }
       const json = await res.json();
-      if (json && json.success && json.data) {
-        return json.data as FullSchoolData;
+      if (res.status === 503 || json?.needsStorageSetup) {
+        return {
+          data: null,
+          status: 'needs-setup',
+          message: json?.message || 'Database cloud Vercel (Upstash Redis) belum dihubungkan.'
+        };
       }
-      return null;
-    } catch (err) {
-      console.warn('Could not connect to central server, using local data:', err);
-      return null;
+      if (!res.ok) {
+        return {
+          data: null,
+          status: 'offline',
+          message: json?.message || `Server merespons status ${res.status}`
+        };
+      }
+      if (json && json.success) {
+        return {
+          data: (json.data as FullSchoolData) || null,
+          status: 'connected',
+          isEmpty: Boolean(json.isEmpty)
+        };
+      }
+      return { data: null, status: 'offline', message: json?.message };
+    } catch (err: any) {
+      console.warn('Could not connect to central server, using local cache:', err);
+      return {
+        data: null,
+        status: 'offline',
+        message: err?.message || 'Tidak dapat terhubung ke server'
+      };
     }
+  },
+
+  /**
+   * Fetch latest school data from centralized server with cache-busting
+   */
+  fetchSchoolData: async (): Promise<FullSchoolData | null> => {
+    const result = await ApiSync.fetchSchoolDataWithStatus();
+    return result.data;
   },
 
   /**
@@ -61,21 +104,44 @@ export const ApiSync = {
    */
   saveSchoolData: async (
     data: Partial<FullSchoolData>
-  ): Promise<{ success: boolean; lastUpdated?: string }> => {
+  ): Promise<{ success: boolean; lastUpdated?: string; error?: string; needsStorageSetup?: boolean }> => {
     try {
       const res = await fetch('/api/school-data', {
         method: 'POST',
+        cache: 'no-store',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache'
         },
         body: JSON.stringify(data)
       });
-      if (!res.ok) return { success: false };
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        return {
+          success: false,
+          needsStorageSetup: true,
+          error: 'Endpoint /api/school-data tidak aktif'
+        };
+      }
       const json = await res.json();
-      return { success: !!json.success, lastUpdated: json.lastUpdated };
-    } catch (err) {
+      if (res.status === 503 || json?.needsStorageSetup) {
+        return {
+          success: false,
+          needsStorageSetup: true,
+          error: json?.message || 'Database cloud Vercel belum dihubungkan'
+        };
+      }
+      if (!res.ok) {
+        return { success: false, error: json?.message || `HTTP ${res.status}` };
+      }
+      return {
+        success: !!json.success,
+        lastUpdated: json.lastUpdated,
+        error: json.success ? undefined : json.message || 'Gagal menyimpan ke server'
+      };
+    } catch (err: any) {
       console.warn('Failed to sync to server:', err);
-      return { success: false };
+      return { success: false, error: err?.message || 'Koneksi ke server terputus' };
     }
   },
 

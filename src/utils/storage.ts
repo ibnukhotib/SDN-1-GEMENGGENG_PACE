@@ -38,7 +38,8 @@ const KEYS = {
   INFAQ_MUSHOLA: 'sdn1_gemenggeng_infaq_mushola_v2',
   USER_ROLE: 'sdn1_gemenggeng_user_role_v2',
   ADMIN_PIN: 'sdn1_gemenggeng_admin_pin_v2',
-  LAST_EDIT_TIME: 'sdn1_gemenggeng_last_edit_time_v2'
+  LAST_EDIT_TIME: 'sdn1_gemenggeng_last_edit_time_v2',
+  PENDING_SYNC: 'sdn1_gemenggeng_pending_sync_v2'
 };
 
 export const DEFAULT_ADMIN_PIN = '123456';
@@ -57,82 +58,151 @@ function safeGet<T>(key: string, fallback: T): T {
   }
 }
 
-function safeSet<T>(key: string, data: T): void {
+function safeSet<T>(key: string, data: T): boolean {
   try {
     localStorage.setItem(key, JSON.stringify(data));
+    return true;
   } catch (e) {
-    console.error(`Error saving key ${key}:`, e);
+    // QuotaExceededError is common when storing base64 photos (>5MB) in localStorage;
+    // IndexedCache handles large snapshots safely.
+    console.warn(`localStorage limit reached for ${key}, relying on IndexedDB & Server:`, e);
+    return false;
   }
 }
+
+// IndexedDB helper for large school snapshots (>5MB photos) on HP & Laptop
+const IDB_NAME = 'sdn1_gemenggeng_cache';
+const IDB_STORE = 'snapshots';
+const IDB_KEY = 'full_school_data';
+
+function openCacheDB(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    if (typeof indexedDB === 'undefined') {
+      reject(new Error('IndexedDB unavailable'));
+      return;
+    }
+    const request = indexedDB.open(IDB_NAME, 1);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(IDB_STORE)) {
+        db.createObjectStore(IDB_STORE);
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export const IndexedCache = {
+  async saveFullData(data: Record<string, any>): Promise<void> {
+    try {
+      const db = await openCacheDB();
+      await new Promise<void>((resolve, reject) => {
+        const tx = db.transaction(IDB_STORE, 'readwrite');
+        const store = tx.objectStore(IDB_STORE);
+        store.put(data, IDB_KEY);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+      db.close();
+    } catch (e) {
+      console.warn('IndexedCache save skipped:', e);
+    }
+  },
+
+  async loadFullData(): Promise<Record<string, any> | null> {
+    try {
+      const db = await openCacheDB();
+      const result = await new Promise<Record<string, any> | null>((resolve, reject) => {
+        const tx = db.transaction(IDB_STORE, 'readonly');
+        const store = tx.objectStore(IDB_STORE);
+        const req = store.get(IDB_KEY);
+        req.onsuccess = () => resolve((req.result as Record<string, any>) || null);
+        req.onerror = () => reject(req.error);
+      });
+      db.close();
+      return result;
+    } catch {
+      return null;
+    }
+  },
+
+  async clear(): Promise<void> {
+    try {
+      const db = await openCacheDB();
+      await new Promise<void>((resolve, reject) => {
+        const tx = db.transaction(IDB_STORE, 'readwrite');
+        tx.objectStore(IDB_STORE).delete(IDB_KEY);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+      db.close();
+    } catch {
+      // ignore
+    }
+  }
+};
 
 export const Storage = {
   getSekolahInfo: (): SekolahInfo => safeGet<SekolahInfo>(KEYS.SEKOLAH_INFO, SEKOLAH_INFO),
   setSekolahInfo: (data: SekolahInfo) => {
     safeSet(KEYS.SEKOLAH_INFO, data);
-    safeSet(KEYS.LAST_EDIT_TIME, Date.now());
   },
 
   getLastEditTime: (): number => safeGet<number>(KEYS.LAST_EDIT_TIME, 0),
   setLastEditTime: (ts: number) => safeSet<number>(KEYS.LAST_EDIT_TIME, ts),
 
+  hasPendingSync: (): boolean => safeGet<boolean>(KEYS.PENDING_SYNC, false),
+  setPendingSync: (pending: boolean) => safeSet<boolean>(KEYS.PENDING_SYNC, pending),
+
   getPtk: (): PendidikTendik[] => safeGet(KEYS.PTK, INITIAL_PTK),
   setPtk: (data: PendidikTendik[]) => {
     safeSet(KEYS.PTK, data);
-    safeSet(KEYS.LAST_EDIT_TIME, Date.now());
   },
 
   getSiswa: (): Siswa[] => safeGet(KEYS.SISWA, INITIAL_SISWA),
   setSiswa: (data: Siswa[]) => {
     safeSet(KEYS.SISWA, data);
-    safeSet(KEYS.LAST_EDIT_TIME, Date.now());
   },
 
   getJadwal: (): JadwalPelajaran[] => safeGet(KEYS.JADWAL, INITIAL_JADWAL),
   setJadwal: (data: JadwalPelajaran[]) => {
     safeSet(KEYS.JADWAL, data);
-    safeSet(KEYS.LAST_EDIT_TIME, Date.now());
   },
 
   getKegiatan: (): KegiatanSekolah[] => safeGet(KEYS.KEGIATAN, INITIAL_KEGIATAN),
   setKegiatan: (data: KegiatanSekolah[]) => {
     safeSet(KEYS.KEGIATAN, data);
-    safeSet(KEYS.LAST_EDIT_TIME, Date.now());
   },
 
   getAlbum: (): AlbumKegiatan[] => safeGet(KEYS.ALBUM, INITIAL_ALBUM),
   setAlbum: (data: AlbumKegiatan[]) => {
     safeSet(KEYS.ALBUM, data);
-    safeSet(KEYS.LAST_EDIT_TIME, Date.now());
   },
 
   getNilai: (): NilaiSiswaRecord[] => safeGet(KEYS.NILAI, INITIAL_NILAI),
   setNilai: (data: NilaiSiswaRecord[]) => {
     safeSet(KEYS.NILAI, data);
-    safeSet(KEYS.LAST_EDIT_TIME, Date.now());
   },
 
   getPresensiPtk: (): PresensiPtkRecord[] => safeGet(KEYS.PRESENSI_PTK, INITIAL_PRESENSI_PTK),
   setPresensiPtk: (data: PresensiPtkRecord[]) => {
     safeSet(KEYS.PRESENSI_PTK, data);
-    safeSet(KEYS.LAST_EDIT_TIME, Date.now());
   },
 
   getPresensiSiswa: (): PresensiSiswaRecord[] => safeGet(KEYS.PRESENSI_SISWA, INITIAL_PRESENSI_SISWA),
   setPresensiSiswa: (data: PresensiSiswaRecord[]) => {
     safeSet(KEYS.PRESENSI_SISWA, data);
-    safeSet(KEYS.LAST_EDIT_TIME, Date.now());
   },
 
   getPesanKepsek: (): string => safeGet(KEYS.PESAN_KEPSEK, DEFAULT_PESAN_KEPSEK),
   setPesanKepsek: (pesan: string) => {
     safeSet(KEYS.PESAN_KEPSEK, pesan);
-    safeSet(KEYS.LAST_EDIT_TIME, Date.now());
   },
 
   getInfaqMushola: (): InfaqMusholaRecord[] => safeGet(KEYS.INFAQ_MUSHOLA, INITIAL_INFAQ_MUSHOLA),
   setInfaqMushola: (data: InfaqMusholaRecord[]) => {
     safeSet(KEYS.INFAQ_MUSHOLA, data);
-    safeSet(KEYS.LAST_EDIT_TIME, Date.now());
   },
 
   getUserRole: (): UserRole => safeGet<UserRole>(KEYS.USER_ROLE, 'viewer'),
@@ -155,7 +225,8 @@ export const Storage = {
     safeSet(KEYS.PESAN_KEPSEK, DEFAULT_PESAN_KEPSEK);
     safeSet(KEYS.USER_ROLE, 'viewer');
     safeSet(KEYS.ADMIN_PIN, DEFAULT_ADMIN_PIN);
-    safeSet(KEYS.LAST_EDIT_TIME, Date.now());
+    safeSet(KEYS.PENDING_SYNC, false);
+    void IndexedCache.clear();
   },
 
   syncAllFromData: (data: any) => {
@@ -170,5 +241,10 @@ export const Storage = {
     if (data.presensiSiswa) safeSet(KEYS.PRESENSI_SISWA, data.presensiSiswa);
     if (data.infaqMusholaList) safeSet(KEYS.INFAQ_MUSHOLA, data.infaqMusholaList);
     if (data.pesanKepsek) safeSet(KEYS.PESAN_KEPSEK, data.pesanKepsek);
+    if (data.lastUpdated) {
+      const ts = new Date(data.lastUpdated).getTime();
+      if (!Number.isNaN(ts)) safeSet(KEYS.LAST_EDIT_TIME, ts);
+    }
+    void IndexedCache.saveFullData(data);
   }
 };

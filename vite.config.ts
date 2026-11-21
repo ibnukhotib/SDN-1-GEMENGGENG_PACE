@@ -51,6 +51,16 @@ export default defineConfig(() => {
             },
           ],
         },
+        workbox: {
+          maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+          navigateFallbackDenylist: [/^\/api\//],
+          runtimeCaching: [
+            {
+              urlPattern: ({ url }) => url.pathname.startsWith('/api/'),
+              handler: 'NetworkOnly',
+            },
+          ],
+        },
         devOptions: {
           enabled: true,
           type: 'module',

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Header } from './components/Header';
 import { Sidebar, TabKey } from './components/Sidebar';
 import { DashboardView } from './components/DashboardView';
@@ -28,8 +28,8 @@ import {
   SekolahInfo,
   InfaqMusholaRecord
 } from './types';
-import { Storage } from './utils/storage';
-import { ApiSync, FullSchoolData } from './utils/apiSync';
+import { Storage, IndexedCache } from './utils/storage';
+import { ApiSync, FullSchoolData, ServerSyncStatus } from './utils/apiSync';
 import { SEKOLAH_INFO } from './data/initialData';
 
 export default function App() {
@@ -62,84 +62,177 @@ export default function App() {
   // Cloud Sync States
   const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [serverStatus, setServerStatus] = useState<ServerSyncStatus>('connected');
+  const [hasPendingSync, setHasPendingSync] = useState<boolean>(Storage.hasPendingSync());
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
   const [syncToast, setSyncToast] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null);
 
-  // Central Server Synchronizer with Anti-Overwriting protection
-  const syncWithServer = async (silent = false) => {
-    // If user edited locally in the last 15 seconds, skip silent background sync to avoid race condition
-    const timeSinceLastEdit = Date.now() - Storage.getLastEditTime();
-    if (silent && timeSinceLastEdit < 15000) {
-      return;
+  const isSyncingRef = useRef(false);
+  const lastLocalWriteRef = useRef(0);
+  const toastTimerRef = useRef<number | null>(null);
+
+  const latestSnapshotRef = useRef<FullSchoolData>({
+    sekolahInfo,
+    ptkList,
+    siswaList,
+    jadwalList,
+    kegiatanList,
+    albumList,
+    nilaiList,
+    presensiPtk,
+    presensiSiswa,
+    infaqMusholaList,
+    pesanKepsek
+  });
+
+  useEffect(() => {
+    latestSnapshotRef.current = {
+      sekolahInfo,
+      ptkList,
+      siswaList,
+      jadwalList,
+      kegiatanList,
+      albumList,
+      nilaiList,
+      presensiPtk,
+      presensiSiswa,
+      infaqMusholaList,
+      pesanKepsek
+    };
+  }, [
+    sekolahInfo,
+    ptkList,
+    siswaList,
+    jadwalList,
+    kegiatanList,
+    albumList,
+    nilaiList,
+    presensiPtk,
+    presensiSiswa,
+    infaqMusholaList,
+    pesanKepsek
+  ]);
+
+  const updatePendingSync = useCallback((pending: boolean) => {
+    Storage.setPendingSync(pending);
+    setHasPendingSync(pending);
+  }, []);
+
+  const showToast = useCallback((message: string, type: 'success' | 'info' | 'error', duration = 3000) => {
+    setSyncToast({ message, type });
+    if (toastTimerRef.current) {
+      window.clearTimeout(toastTimerRef.current);
+    }
+    toastTimerRef.current = window.setTimeout(() => {
+      setSyncToast(null);
+    }, duration);
+  }, []);
+
+  const applyServerData = useCallback((serverData: Partial<FullSchoolData>) => {
+    if (serverData.sekolahInfo) setSekolahInfo(serverData.sekolahInfo);
+    if (Array.isArray(serverData.ptkList) && serverData.ptkList.length > 0) setPtkList(serverData.ptkList);
+    if (Array.isArray(serverData.siswaList)) setSiswaList(serverData.siswaList);
+    if (Array.isArray(serverData.jadwalList)) setJadwalList(serverData.jadwalList);
+    if (Array.isArray(serverData.kegiatanList)) setKegiatanList(serverData.kegiatanList);
+    if (Array.isArray(serverData.albumList)) setAlbumList(serverData.albumList);
+    if (Array.isArray(serverData.nilaiList)) setNilaiList(serverData.nilaiList);
+    if (Array.isArray(serverData.presensiPtk)) setPresensiPtk(serverData.presensiPtk);
+    if (Array.isArray(serverData.presensiSiswa)) setPresensiSiswa(serverData.presensiSiswa);
+    if (Array.isArray(serverData.infaqMusholaList)) setInfaqMusholaList(serverData.infaqMusholaList);
+    if (serverData.pesanKepsek) setPesanKepsek(serverData.pesanKepsek);
+  }, []);
+
+  // Central Server Synchronizer: Server is the single source of truth unless this device has unsent pending edits
+  const syncWithServer = useCallback(async (silent = false): Promise<boolean> => {
+    if (isSyncingRef.current) return false;
+
+    // Avoid racing with an active save triggered in the last 3 seconds
+    if (silent && Date.now() - lastLocalWriteRef.current < 3000) {
+      return false;
     }
 
     try {
+      isSyncingRef.current = true;
       setIsSyncing(true);
-      const serverData = await ApiSync.fetchSchoolData();
-      if (!serverData) return;
 
-      const serverTs = serverData.lastUpdated ? new Date(serverData.lastUpdated).getTime() : 0;
-      const localTs = Storage.getLastEditTime();
-
-      // If local data is newer than what server returned (e.g. cached response), push local data to server
-      if (localTs > serverTs + 1000) {
-        await ApiSync.saveSchoolData({
-          sekolahInfo: Storage.getSekolahInfo(),
-          ptkList: Storage.getPtk(),
-          siswaList: Storage.getSiswa(),
-          jadwalList: Storage.getJadwal(),
-          kegiatanList: Storage.getKegiatan(),
-          albumList: Storage.getAlbum(),
-          nilaiList: Storage.getNilai(),
-          presensiPtk: Storage.getPresensiPtk(),
-          presensiSiswa: Storage.getPresensiSiswa(),
-          infaqMusholaList: Storage.getInfaqMushola(),
-          pesanKepsek: Storage.getPesanKepsek()
-        });
-        return;
+      // If this device has unsent edits (e.g. saved while offline), push those first
+      if (Storage.hasPendingSync()) {
+        const cached = ((await IndexedCache.loadFullData()) as Partial<FullSchoolData> | null) || latestSnapshotRef.current;
+        if (cached) {
+          const pushRes = await ApiSync.saveSchoolData(cached);
+          if (pushRes.success) {
+            updatePendingSync(false);
+            setServerStatus('connected');
+            if (pushRes.lastUpdated) {
+              Storage.setLastEditTime(new Date(pushRes.lastUpdated).getTime());
+            }
+          } else {
+            setServerStatus(pushRes.needsStorageSetup ? 'needs-setup' : 'offline');
+            if (!silent) {
+              showToast(`Belum dapat mengirim perubahan ke server (${pushRes.error || 'offline'})`, 'error', 4000);
+            }
+            return false;
+          }
+        } else {
+          updatePendingSync(false);
+        }
       }
 
-      // Server is authoritatively newer or synchronized: safely apply to state
-      if (serverData.sekolahInfo) {
-        setSekolahInfo(serverData.sekolahInfo);
-      }
-      if (Array.isArray(serverData.ptkList) && serverData.ptkList.length > 0) {
-        setPtkList(serverData.ptkList);
-      }
-      if (Array.isArray(serverData.siswaList)) {
-        setSiswaList(serverData.siswaList);
-      }
-      if (Array.isArray(serverData.jadwalList)) setJadwalList(serverData.jadwalList);
-      if (Array.isArray(serverData.kegiatanList)) setKegiatanList(serverData.kegiatanList);
-      if (Array.isArray(serverData.albumList)) setAlbumList(serverData.albumList);
-      if (Array.isArray(serverData.nilaiList)) setNilaiList(serverData.nilaiList);
-      if (Array.isArray(serverData.presensiPtk)) setPresensiPtk(serverData.presensiPtk);
-      if (Array.isArray(serverData.presensiSiswa)) setPresensiSiswa(serverData.presensiSiswa);
-      if (Array.isArray(serverData.infaqMusholaList)) setInfaqMusholaList(serverData.infaqMusholaList);
-      if (serverData.pesanKepsek) setPesanKepsek(serverData.pesanKepsek);
+      const result = await ApiSync.fetchSchoolDataWithStatus();
+      setServerStatus(result.status);
 
-      Storage.syncAllFromData(serverData);
+      if (result.status !== 'connected') {
+        if (!silent) {
+          showToast(result.message || 'Gagal mengambil data terbaru dari server', 'error', 3500);
+        }
+        return false;
+      }
+
+      // Fresh cloud DB on Vercel (e.g. newly connected Upstash Redis): seed with current snapshot
+      if (result.isEmpty || !result.data) {
+        const seedPayload = latestSnapshotRef.current;
+        if (seedPayload.ptkList.length > 0) {
+          const seedRes = await ApiSync.saveSchoolData(seedPayload);
+          if (seedRes.success) {
+            updatePendingSync(false);
+            const timeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+            setLastSyncTime(timeStr);
+            if (!silent) {
+              showToast(`Database cloud berhasil diinisialisasi (${timeStr})`, 'success', 3000);
+            }
+            return true;
+          }
+        }
+        return false;
+      }
+
+      applyServerData(result.data);
+      Storage.syncAllFromData(result.data);
 
       const timeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
       setLastSyncTime(timeStr);
       if (!silent) {
-        setSyncToast({ message: `Data berhasil disinkronkan (${timeStr})`, type: 'success' });
-        setTimeout(() => setSyncToast(null), 3000);
+        showToast(`Data berhasil disinkronkan (${timeStr})`, 'success', 3000);
       }
+      return true;
     } catch (err) {
       console.warn('Sync failed:', err);
+      setServerStatus('offline');
       if (!silent) {
-        setSyncToast({ message: 'Gagal terhubung ke server', type: 'error' });
-        setTimeout(() => setSyncToast(null), 3000);
+        showToast('Gagal terhubung ke server', 'error', 3500);
       }
+      return false;
     } finally {
+      isSyncingRef.current = false;
       setIsSyncing(false);
     }
-  };
+  }, [applyServerData, showToast, updatePendingSync]);
 
-  // Load from LocalStorage on mount & auto-sync from central server
+  // Load local cache on mount & auto-sync with central server on load, focus, visibility, online, and interval
   useEffect(() => {
-    // 1. Instant local load
+    let active = true;
+
+    // 1. Synchronous fallback load
     setSekolahInfo(Storage.getSekolahInfo());
     setPtkList(Storage.getPtk());
     setSiswaList(Storage.getSiswa());
@@ -152,46 +245,136 @@ export default function App() {
     setInfaqMusholaList(Storage.getInfaqMushola());
     setPesanKepsek(Storage.getPesanKepsek());
 
-    // 2. Fetch from centralized server
-    syncWithServer(true);
+    // 2. Load full snapshot from IndexedDB (supports >5MB photo datasets on HP & Laptop)
+    IndexedCache.loadFullData().then((cached) => {
+      if (active && cached) {
+        applyServerData(cached as Partial<FullSchoolData>);
+      }
+      // 3. Immediately pull authoritative data from central server
+      if (active) {
+        void syncWithServer(true);
+      }
+    });
 
-    // 3. Periodic graceful sync every 25 seconds
-    const interval = setInterval(() => {
-      syncWithServer(true);
-    }, 25000);
+    const handleWakeSync = () => {
+      if (document.visibilityState === 'visible') {
+        void syncWithServer(true);
+      }
+    };
+
+    const handleOnline = () => {
+      void syncWithServer(true);
+    };
+
+    window.addEventListener('focus', handleWakeSync);
+    document.addEventListener('visibilitychange', handleWakeSync);
+    window.addEventListener('online', handleOnline);
+
+    // 4. Periodic sync every 10 seconds while app is visible
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        void syncWithServer(true);
+      }
+    }, 10000);
 
     return () => {
-      clearInterval(interval);
+      active = false;
+      window.removeEventListener('focus', handleWakeSync);
+      document.removeEventListener('visibilitychange', handleWakeSync);
+      window.removeEventListener('online', handleOnline);
+      window.clearInterval(interval);
     };
-  }, []);
+  }, [applyServerData, syncWithServer]);
 
-  const showSaveSuccess = (entityName: string) => {
-    setSyncToast({ message: `${entityName} berhasil disimpan & disinkronkan!`, type: 'success' });
-    setTimeout(() => setSyncToast(null), 2500);
-  };
+  const persistChange = useCallback(
+    async (
+      entityName: string,
+      partialPayload: Partial<FullSchoolData>,
+      nextSnapshotOverride?: Partial<FullSchoolData>
+    ) => {
+      lastLocalWriteRef.current = Date.now();
+      updatePendingSync(true);
+
+      const snapshot: Partial<FullSchoolData> = {
+        ...latestSnapshotRef.current,
+        ...partialPayload,
+        ...nextSnapshotOverride
+      };
+      await IndexedCache.saveFullData(snapshot);
+
+      const res = await ApiSync.saveSchoolData(partialPayload);
+      if (res.success) {
+        updatePendingSync(false);
+        setServerStatus('connected');
+        if (res.lastUpdated) {
+          Storage.setLastEditTime(new Date(res.lastUpdated).getTime());
+        }
+        setLastSyncTime(new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }));
+        showToast(`${entityName} berhasil disimpan & tersinkron ke server!`, 'success', 2800);
+      } else {
+        setServerStatus(res.needsStorageSetup ? 'needs-setup' : 'offline');
+        showToast(
+          res.needsStorageSetup
+            ? `Tersimpan di perangkat ini. Hubungkan database cloud Vercel di menu Sinkron agar masuk ke HP.`
+            : `Tersimpan lokal saja, gagal sinkron ke server (${res.error || 'koneksi terputus'}).`,
+          'error',
+          4500
+        );
+      }
+    },
+    [showToast, updatePendingSync]
+  );
+
+  const handlePushToServer = useCallback(async (): Promise<boolean> => {
+    if (isSyncingRef.current) return false;
+    try {
+      isSyncingRef.current = true;
+      setIsSyncing(true);
+      lastLocalWriteRef.current = Date.now();
+
+      const snapshot = latestSnapshotRef.current;
+      await IndexedCache.saveFullData(snapshot);
+
+      const res = await ApiSync.saveSchoolData(snapshot);
+      if (res.success) {
+        updatePendingSync(false);
+        setServerStatus('connected');
+        if (res.lastUpdated) {
+          Storage.setLastEditTime(new Date(res.lastUpdated).getTime());
+        }
+        const timeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+        setLastSyncTime(timeStr);
+        showToast(`Seluruh data berhasil dikirim ke server (${timeStr})`, 'success', 3000);
+        return true;
+      }
+
+      setServerStatus(res.needsStorageSetup ? 'needs-setup' : 'offline');
+      showToast(
+        res.needsStorageSetup
+          ? 'Database cloud Vercel belum terhubung. Ikuti petunjuk di menu Sinkron.'
+          : `Gagal mengirim ke server (${res.error || 'offline'})`,
+        'error',
+        4500
+      );
+      return false;
+    } finally {
+      isSyncingRef.current = false;
+      setIsSyncing(false);
+    }
+  }, [showToast, updatePendingSync]);
 
   // Save SekolahInfo
   const handleSaveSekolahInfo = (info: SekolahInfo) => {
     setSekolahInfo(info);
     Storage.setSekolahInfo(info);
-    ApiSync.saveSchoolData({ sekolahInfo: info }).then((res) => {
-      if (res.lastUpdated) {
-        Storage.setLastEditTime(new Date(res.lastUpdated).getTime());
-      }
-      showSaveSuccess('Identitas & Profil Sekolah');
-    });
+    void persistChange('Identitas & Profil Sekolah', { sekolahInfo: info });
   };
 
   // Save Pesan Kepala Sekolah
   const handleSavePesanKepsek = (pesan: string) => {
     setPesanKepsek(pesan);
     Storage.setPesanKepsek(pesan);
-    ApiSync.saveSchoolData({ pesanKepsek: pesan }).then((res) => {
-      if (res.lastUpdated) {
-        Storage.setLastEditTime(new Date(res.lastUpdated).getTime());
-      }
-      showSaveSuccess('Pesan Kepala Sekolah');
-    });
+    void persistChange('Pesan Kepala Sekolah', { pesanKepsek: pesan });
   };
 
   // Find dynamic Kepala Sekolah from PTK list
@@ -213,26 +396,14 @@ export default function App() {
     }
     setPtkList(updated);
     Storage.setPtk(updated);
-    ApiSync.saveSchoolData({ ptkList: updated }).then((res) => {
-      if (res.lastUpdated) {
-        Storage.setLastEditTime(new Date(res.lastUpdated).getTime());
-      }
-      setLastSyncTime(new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }));
-      showSaveSuccess('Data Pendidik/PTK');
-    });
+    void persistChange('Data Pendidik/PTK', { ptkList: updated });
   };
 
   const handleDeletePtk = (id: string) => {
     const updated = ptkList.filter((p) => p.id !== id);
     setPtkList(updated);
     Storage.setPtk(updated);
-    ApiSync.saveSchoolData({ ptkList: updated }).then((res) => {
-      if (res.lastUpdated) {
-        Storage.setLastEditTime(new Date(res.lastUpdated).getTime());
-      }
-      setLastSyncTime(new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }));
-      showSaveSuccess('Data Pendidik/PTK');
-    });
+    void persistChange('Data Pendidik/PTK', { ptkList: updated });
   };
 
   // Siswa handlers
@@ -247,24 +418,14 @@ export default function App() {
     }
     setSiswaList(updated);
     Storage.setSiswa(updated);
-    ApiSync.saveSchoolData({ siswaList: updated }).then((res) => {
-      if (res.lastUpdated) {
-        Storage.setLastEditTime(new Date(res.lastUpdated).getTime());
-      }
-      showSaveSuccess('Data Siswa');
-    });
+    void persistChange('Data Siswa', { siswaList: updated });
   };
 
   const handleDeleteSiswa = (id: string) => {
     const updated = siswaList.filter((s) => s.id !== id);
     setSiswaList(updated);
     Storage.setSiswa(updated);
-    ApiSync.saveSchoolData({ siswaList: updated }).then((res) => {
-      if (res.lastUpdated) {
-        Storage.setLastEditTime(new Date(res.lastUpdated).getTime());
-      }
-      showSaveSuccess('Data Siswa');
-    });
+    void persistChange('Data Siswa', { siswaList: updated });
   };
 
   // Jadwal handlers
@@ -279,24 +440,14 @@ export default function App() {
     }
     setJadwalList(updated);
     Storage.setJadwal(updated);
-    ApiSync.saveSchoolData({ jadwalList: updated }).then((res) => {
-      if (res.lastUpdated) {
-        Storage.setLastEditTime(new Date(res.lastUpdated).getTime());
-      }
-      showSaveSuccess('Jadwal Pelajaran');
-    });
+    void persistChange('Jadwal Pelajaran', { jadwalList: updated });
   };
 
   const handleDeleteJadwal = (id: string) => {
     const updated = jadwalList.filter((j) => j.id !== id);
     setJadwalList(updated);
     Storage.setJadwal(updated);
-    ApiSync.saveSchoolData({ jadwalList: updated }).then((res) => {
-      if (res.lastUpdated) {
-        Storage.setLastEditTime(new Date(res.lastUpdated).getTime());
-      }
-      showSaveSuccess('Jadwal Pelajaran');
-    });
+    void persistChange('Jadwal Pelajaran', { jadwalList: updated });
   };
 
   // Kegiatan handlers
@@ -311,24 +462,14 @@ export default function App() {
     }
     setKegiatanList(updated);
     Storage.setKegiatan(updated);
-    ApiSync.saveSchoolData({ kegiatanList: updated }).then((res) => {
-      if (res.lastUpdated) {
-        Storage.setLastEditTime(new Date(res.lastUpdated).getTime());
-      }
-      showSaveSuccess('Agenda Kegiatan');
-    });
+    void persistChange('Agenda Kegiatan', { kegiatanList: updated });
   };
 
   const handleDeleteKegiatan = (id: string) => {
     const updated = kegiatanList.filter((k) => k.id !== id);
     setKegiatanList(updated);
     Storage.setKegiatan(updated);
-    ApiSync.saveSchoolData({ kegiatanList: updated }).then((res) => {
-      if (res.lastUpdated) {
-        Storage.setLastEditTime(new Date(res.lastUpdated).getTime());
-      }
-      showSaveSuccess('Agenda Kegiatan');
-    });
+    void persistChange('Agenda Kegiatan', { kegiatanList: updated });
   };
 
   // Album handlers
@@ -343,59 +484,34 @@ export default function App() {
     }
     setAlbumList(updated);
     Storage.setAlbum(updated);
-    ApiSync.saveSchoolData({ albumList: updated }).then((res) => {
-      if (res.lastUpdated) {
-        Storage.setLastEditTime(new Date(res.lastUpdated).getTime());
-      }
-      showSaveSuccess('Dokumentasi Album');
-    });
+    void persistChange('Dokumentasi Album', { albumList: updated });
   };
 
   const handleDeleteAlbum = (id: string) => {
     const updated = albumList.filter((a) => a.id !== id);
     setAlbumList(updated);
     Storage.setAlbum(updated);
-    ApiSync.saveSchoolData({ albumList: updated }).then((res) => {
-      if (res.lastUpdated) {
-        Storage.setLastEditTime(new Date(res.lastUpdated).getTime());
-      }
-      showSaveSuccess('Dokumentasi Album');
-    });
+    void persistChange('Dokumentasi Album', { albumList: updated });
   };
 
   // Nilai handlers
   const handleSaveNilai = (records: NilaiSiswaRecord[]) => {
     setNilaiList(records);
     Storage.setNilai(records);
-    ApiSync.saveSchoolData({ nilaiList: records }).then((res) => {
-      if (res.lastUpdated) {
-        Storage.setLastEditTime(new Date(res.lastUpdated).getTime());
-      }
-      showSaveSuccess('Nilai Asesmen');
-    });
+    void persistChange('Nilai Asesmen', { nilaiList: records });
   };
 
   // Presensi handlers
   const handleUpdatePresensiPtk = (records: PresensiPtkRecord[]) => {
     setPresensiPtk(records);
     Storage.setPresensiPtk(records);
-    ApiSync.saveSchoolData({ presensiPtk: records }).then((res) => {
-      if (res.lastUpdated) {
-        Storage.setLastEditTime(new Date(res.lastUpdated).getTime());
-      }
-      showSaveSuccess('Presensi PTK');
-    });
+    void persistChange('Presensi PTK', { presensiPtk: records });
   };
 
   const handleUpdatePresensiSiswa = (records: PresensiSiswaRecord[]) => {
     setPresensiSiswa(records);
     Storage.setPresensiSiswa(records);
-    ApiSync.saveSchoolData({ presensiSiswa: records }).then((res) => {
-      if (res.lastUpdated) {
-        Storage.setLastEditTime(new Date(res.lastUpdated).getTime());
-      }
-      showSaveSuccess('Presensi Siswa');
-    });
+    void persistChange('Presensi Siswa', { presensiSiswa: records });
   };
 
   // Infaq Mushola handlers
@@ -410,24 +526,14 @@ export default function App() {
     }
     setInfaqMusholaList(updated);
     Storage.setInfaqMushola(updated);
-    ApiSync.saveSchoolData({ infaqMusholaList: updated }).then((res) => {
-      if (res.lastUpdated) {
-        Storage.setLastEditTime(new Date(res.lastUpdated).getTime());
-      }
-      showSaveSuccess('Catatan Infaq Mushola');
-    });
+    void persistChange('Catatan Infaq Mushola', { infaqMusholaList: updated });
   };
 
   const handleDeleteInfaqMushola = (id: string) => {
     const updated = infaqMusholaList.filter((i) => i.id !== id);
     setInfaqMusholaList(updated);
     Storage.setInfaqMushola(updated);
-    ApiSync.saveSchoolData({ infaqMusholaList: updated }).then((res) => {
-      if (res.lastUpdated) {
-        Storage.setLastEditTime(new Date(res.lastUpdated).getTime());
-      }
-      showSaveSuccess('Catatan Infaq Mushola');
-    });
+    void persistChange('Catatan Infaq Mushola', { infaqMusholaList: updated });
   };
 
   // Reset to default sample data with central sync
@@ -498,6 +604,10 @@ export default function App() {
             Storage.setUserRole('viewer');
           }}
           sekolahInfo={sekolahInfo}
+          onOpenSyncModal={() => setIsSyncModalOpen(true)}
+          isSyncing={isSyncing}
+          hasPendingSync={hasPendingSync}
+          serverStatus={serverStatus}
         />
 
         <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
@@ -663,11 +773,15 @@ export default function App() {
         onClose={() => setIsSyncModalOpen(false)}
         lastSyncTime={lastSyncTime}
         isSyncing={isSyncing}
+        serverStatus={serverStatus}
+        hasPendingSync={hasPendingSync}
         onManualSync={() => syncWithServer(false)}
+        onPushToServer={handlePushToServer}
         onForceReset={handleResetData}
         ptkCount={ptkList.length}
         siswaCount={siswaList.length}
         fullData={{
+          sekolahInfo,
           ptkList,
           siswaList,
           jadwalList,
@@ -680,6 +794,7 @@ export default function App() {
           pesanKepsek
         }}
         onRestoreData={(data) => {
+          if (data.sekolahInfo) setSekolahInfo(data.sekolahInfo);
           if (data.ptkList) setPtkList(data.ptkList);
           if (data.siswaList) setSiswaList(data.siswaList);
           if (data.jadwalList) setJadwalList(data.jadwalList);
@@ -697,8 +812,24 @@ export default function App() {
 
       {/* Sync Toast Notification */}
       {syncToast && (
-        <div className="fixed bottom-5 right-5 z-50 flex items-center gap-2 px-4 py-2.5 rounded-xl shadow-lg border text-xs font-semibold animate-in fade-in slide-in-from-bottom-3 duration-200 bg-slate-900 text-white border-slate-700">
-          <div className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></div>
+        <div
+          className={`fixed bottom-5 right-5 z-50 flex items-center gap-2 px-4 py-2.5 rounded-xl shadow-lg border text-xs font-semibold animate-in fade-in slide-in-from-bottom-3 duration-200 ${
+            syncToast.type === 'error'
+              ? 'bg-rose-950 text-rose-100 border-rose-700'
+              : syncToast.type === 'info'
+              ? 'bg-amber-950 text-amber-100 border-amber-700'
+              : 'bg-slate-900 text-white border-slate-700'
+          }`}
+        >
+          <div
+            className={`w-2 h-2 rounded-full animate-ping ${
+              syncToast.type === 'error'
+                ? 'bg-rose-400'
+                : syncToast.type === 'info'
+                ? 'bg-amber-400'
+                : 'bg-emerald-400'
+            }`}
+          />
           <span>{syncToast.message}</span>
         </div>
       )}

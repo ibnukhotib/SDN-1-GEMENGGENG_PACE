@@ -1,8 +1,9 @@
 import React from 'react';
-import { Menu, Calendar, Printer, ShieldCheck, KeyRound } from 'lucide-react';
+import { Menu, Calendar, Printer, ShieldCheck, KeyRound, RefreshCw } from 'lucide-react';
 import { SEKOLAH_INFO } from '../data/initialData';
 import { SekolahInfo } from '../types';
 import { PWAInstallButton } from './PWAInstallButton';
+import { ServerSyncStatus } from '../utils/apiSync';
 
 interface HeaderProps {
   onToggleSidebar: () => void;
@@ -11,6 +12,10 @@ interface HeaderProps {
   onOpenAdminModal: () => void;
   onLogoutAdmin: () => void;
   sekolahInfo?: SekolahInfo;
+  onOpenSyncModal?: () => void;
+  isSyncing?: boolean;
+  hasPendingSync?: boolean;
+  serverStatus?: ServerSyncStatus;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -18,7 +23,11 @@ export const Header: React.FC<HeaderProps> = ({
   isAdmin,
   onOpenAdminModal,
   onLogoutAdmin,
-  sekolahInfo = SEKOLAH_INFO
+  sekolahInfo = SEKOLAH_INFO,
+  onOpenSyncModal,
+  isSyncing = false,
+  hasPendingSync = false,
+  serverStatus = 'connected'
 }) => {
   const info = sekolahInfo || SEKOLAH_INFO;
 
@@ -106,6 +115,24 @@ export const Header: React.FC<HeaderProps> = ({
                 >
                   <KeyRound className="w-3.5 h-3.5" />
                   <span>Masuk Admin</span>
+                </button>
+              )}
+
+              {onOpenSyncModal && (
+                <button
+                  onClick={onOpenSyncModal}
+                  className={`relative inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-2xs active:scale-95 border ${
+                    hasPendingSync || serverStatus === 'needs-setup'
+                      ? 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-300'
+                      : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-200'
+                  }`}
+                  title="Sinkronkan & simpan data antara Laptop, HP, dan Server Vercel"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+                  <span>Sinkron</span>
+                  {(hasPendingSync || serverStatus === 'needs-setup') && (
+                    <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                  )}
                 </button>
               )}
 

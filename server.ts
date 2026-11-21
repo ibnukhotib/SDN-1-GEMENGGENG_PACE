@@ -12,7 +12,7 @@ const isProd = process.env.NODE_ENV === 'production';
 // In production, Cloud Run passes PORT (e.g. 8080).
 const PORT = isProd && process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
-app.use(express.json({ limit: '30mb' }));
+app.use(express.json({ limit: '50mb' }));
 
 const DATA_DIR = path.join(__dirname, 'data');
 const DB_FILE = path.join(DATA_DIR, 'school-database.json');
@@ -235,6 +235,10 @@ app.post('/api/school-data', (req, res) => {
     };
 
     const saved = writeDatabase(normalizeDatabase(merged));
+    res.set({
+      'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+      'Pragma': 'no-cache'
+    });
     res.json({
       success: true,
       lastUpdated: saved.lastUpdated,
@@ -256,6 +260,10 @@ app.post('/api/school-data/sync-ptk', (req, res) => {
     const current = readDatabase();
     current.ptkList = ptkList;
     const saved = writeDatabase(normalizeDatabase(current));
+    res.set({
+      'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+      'Pragma': 'no-cache'
+    });
     res.json({
       success: true,
       lastUpdated: saved.lastUpdated,
